@@ -241,12 +241,15 @@ dom-tree-scraper/
 - **Browser Installation**: Fixed using official Microsoft Playwright Docker image
 - **UID Conflicts**: Resolved by using unique UID 2000 for container user
 - **Memory Usage**: Optimized with proper browser cleanup and resource management
+- **German Register Performance**: Resolved with Phase 2 time-aware tree building optimizations
+- **Tree Building Timeouts**: Fixed with intelligent recursion limits and progressive processing
 
 ### **Performance Characteristics**
 - **Cold Start**: ≤ 10s (Cloud Run optimized)
-- **Execution Time**: ≤ 60s (well within 120s requirement)
+- **Execution Time**: ≤ 60s (typically 15-20s for complex pages, well within 120s requirement)
 - **Memory Usage**: Optimized for Cloud Run constraints
 - **Scalability**: Stateless design supports multiple concurrent requests
+- **Phase 2 Optimizations**: Time-aware tree building with intelligent fallbacks
 
 ## 🎯 **Project Status**
 

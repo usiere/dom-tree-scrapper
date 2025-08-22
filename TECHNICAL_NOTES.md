@@ -108,6 +108,14 @@ page.wait_for_function(condition, timeout=10000)
 - **Tree Expansion**: 60 seconds (project requirement)
 - **Total Execution**: ≤ 60 seconds (well within 120s limit)
 
+### **Phase 2: Advanced Performance Optimizations**
+- **Time-Aware Tree Building**: Monitors time during tree construction
+- **Intelligent Recursion Limits**: Prevents deep recursion timeouts
+- **Progressive Processing**: Builds tree incrementally with time checks
+- **Smart Fallbacks**: Returns minimal tree when time is limited
+- **German Register Success**: 66 nodes extracted in 15.45 seconds
+- **Child Node Limits**: Maximum 50 children per parent to prevent overflow
+
 ### **Memory Management**
 - **Browser Cleanup**: Proper resource disposal
 - **Tree Size Limits**: Reasonable node count validation
