@@ -302,16 +302,15 @@ class TreeExtractor:
             return {'label': 'Error extracting data', 'href': None, 'expandable': False}
     
     def find_child_nodes(self, parent_element) -> List[Any]:
-        """Find child nodes of a parent element"""
+        """Find child nodes of a parent element (optimized for speed)"""
         try:
-            # Look for various child node patterns
+            # Use faster, more targeted selectors
             child_selectors = [
-                '[class*="child"]',
-                '[class*="sub"]',
-                '[class*="nested"]',
-                '> *',  # Direct children
-                'ul > li',
-                'ol > li'
+                '> div',  # Direct div children (most common)
+                '> span',  # Direct span children
+                '> a',     # Direct link children
+                '> li',    # List items
+                '> p'      # Paragraphs
             ]
             
             children = []
@@ -319,18 +318,25 @@ class TreeExtractor:
                 try:
                     child_nodes = parent_element.query_selector_all(selector)
                     children.extend(child_nodes)
+                    
+                    # Limit total children to prevent excessive processing
+                    if len(children) >= 50:
+                        logger.debug(f"Reached child limit (50), stopping search")
+                        break
+                        
                 except Exception:
                     continue
             
-            # Remove duplicates and filter out the parent itself
+            # Quick deduplication (limit to first 50)
             unique_children = []
             seen = set()
-            for child in children:
+            for child in children[:50]:  # Hard limit
                 child_id = id(child)
                 if child_id not in seen and child_id != id(parent_element):
                     seen.add(child_id)
                     unique_children.append(child)
             
+            logger.debug(f"Found {len(unique_children)} child nodes")
             return unique_children
             
         except Exception as e:
@@ -338,10 +344,16 @@ class TreeExtractor:
             return []
     
     def build_tree_structure(self) -> Dict[str, Any]:
-        """Build the final JSON tree structure"""
+        """Build the final JSON tree structure with time awareness"""
         logger.info("Building tree structure from expanded DOM...")
         
         try:
+            # Check time remaining - leave buffer for processing
+            time_remaining = self.max_timeout - (time.time() - self.start_time)
+            if time_remaining < 10:
+                logger.warning(f"Only {time_remaining:.1f}s remaining, building minimal tree")
+                return self._build_minimal_tree()
+            
             # Find the root container - try multiple selectors
             root_selectors = [
                 '[class*="document-tree"]',
@@ -365,8 +377,8 @@ class TreeExtractor:
             if not root_container:
                 raise Exception("Could not find any root container")
             
-            # Build tree starting from root
-            tree_data = self._extract_subtree(root_container)
+            # Build tree with time monitoring
+            tree_data = self._extract_subtree_timed(root_container, time_remaining)
             
             # Validate the tree structure
             self._validate_tree_structure(tree_data)
@@ -378,21 +390,40 @@ class TreeExtractor:
             logger.error(f"Error building tree structure: {e}")
             raise
     
-    def _extract_subtree(self, element) -> Dict[str, Any]:
-        """Recursively extract tree structure from DOM element"""
+    def _extract_subtree_timed(self, element, time_remaining: float) -> Dict[str, Any]:
+        """Recursively extract tree structure from DOM element with time monitoring"""
         try:
+            # Check if we're running out of time
+            if time.time() - self.start_time > self.max_timeout - 5:
+                logger.warning("Time limit approaching, returning partial tree")
+                return {'label': 'Partial tree (time limit)', 'children': []}
+            
             # Extract basic node information
             node_data = self.extract_node_data(element)
             
-            # Find child nodes
+            # Find child nodes (limit to prevent deep recursion)
             children = []
             child_elements = self.find_child_nodes(element)
             
-            for child_element in child_elements:
+            # Limit children to prevent excessive processing
+            max_children = 20  # Limit to prevent deep recursion
+            child_elements = child_elements[:max_children]
+            
+            for i, child_element in enumerate(child_elements):
                 try:
-                    child_node = self._extract_subtree(child_element)
+                    # Check time before processing each child
+                    if time.time() - self.start_time > self.max_timeout - 3:
+                        logger.warning("Time limit reached, stopping child processing")
+                        break
+                    
+                    child_node = self._extract_subtree_timed(child_element, time_remaining)
                     if child_node:
                         children.append(child_node)
+                        
+                    # Add small delay to prevent overwhelming the page
+                    if i < len(child_elements) - 1:
+                        time.sleep(0.01)
+                        
                 except Exception as e:
                     logger.debug(f"Error extracting child node: {e}")
                     continue
@@ -413,6 +444,65 @@ class TreeExtractor:
         except Exception as e:
             logger.error(f"Error extracting subtree: {e}")
             return {'label': 'Error extracting subtree', 'children': []}
+    
+    def _extract_subtree(self, element) -> Dict[str, Any]:
+        """Legacy method - kept for compatibility"""
+        return self._extract_subtree_timed(element, self.max_timeout)
+    
+    def _build_minimal_tree(self) -> Dict[str, Any]:
+        """Build a minimal tree structure when time is limited"""
+        logger.info("Building minimal tree structure due to time constraints")
+        
+        try:
+            # Get basic page information
+            title = self.page.title() or "German Business Register"
+            
+            # Find any visible text content
+            body = self.page.query_selector('body')
+            if body:
+                text_content = body.text_content()[:200] + "..." if body.text_content() else "No content available"
+            else:
+                text_content = "No content available"
+            
+            # Create minimal tree
+            minimal_tree = {
+                'label': title,
+                'href': self.page.url,
+                'expandable': False,
+                'children': [
+                    {
+                        'label': 'Page Content (Partial)',
+                        'href': None,
+                        'expandable': False,
+                        'children': [
+                            {
+                                'label': text_content,
+                                'href': None,
+                                'expandable': False,
+                                'children': []
+                            }
+                        ]
+                    },
+                    {
+                        'label': 'Note: Tree extraction was limited due to time constraints',
+                        'href': None,
+                        'expandable': False,
+                        'children': []
+                    }
+                ]
+            }
+            
+            logger.info("Minimal tree built successfully")
+            return minimal_tree
+            
+        except Exception as e:
+            logger.error(f"Error building minimal tree: {e}")
+            return {
+                'label': 'Error: Could not build tree',
+                'href': None,
+                'expandable': False,
+                'children': []
+            }
     
     def _validate_tree_structure(self, tree_data: Dict[str, Any]) -> bool:
         """Validate the extracted tree structure"""
