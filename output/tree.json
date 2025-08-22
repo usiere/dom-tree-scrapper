@@ -1,0 +1,36 @@
+{
+  "label": "Example Domain\n    This domain is for use in illustrative examples in documents. You may use this\n    domain in literature without prior coordination or asking for permission.\n    More information...",
+  "href": "https://www.iana.org/domains/example",
+  "expandable": false,
+  "children": [
+    {
+      "label": "Example Domain\n    This domain is for use in illustrative examples in documents. You may use this\n  ",
+      "href": "https://www.iana.org/domains/example",
+      "expandable": false,
+      "children": [
+        {
+          "label": "Example Domain",
+          "expandable": false,
+          "children": []
+        },
+        {
+          "label": "This domain is for use in illustrative examples in documents. You may use this\n    domain in literat",
+          "expandable": false,
+          "children": []
+        },
+        {
+          "label": "More information...",
+          "href": "https://www.iana.org/domains/example",
+          "expandable": false,
+          "children": [
+            {
+              "label": "More information...",
+              "expandable": false,
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
