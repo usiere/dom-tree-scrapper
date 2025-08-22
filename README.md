@@ -46,28 +46,33 @@ This application automatically expands collapsible DOM elements on web pages and
 ## 🌐 Cloud Deployment
 
 ### Public Service URL
-**Live API**: https://dom-tree-scraper-t2nuzzu7eq-uc.a.run.app
+**Live API**: https://dom-tree-scraper-326385607594.us-central1.run.app
 
 ### Test the Deployed Service
 
 #### Health Check
 ```bash
-curl "https://dom-tree-scraper-t2nuzzu7eq-uc.a.run.app/health"
+curl "https://dom-tree-scraper-326385607594.us-central1.run.app/health"
+```
+
+#### Quick Test (Immediate Response)
+```bash
+curl "https://dom-tree-scraper-326385607594.us-central1.run.app/api/v1/div-tree/quick"
 ```
 
 #### Extract DOM Tree (Default URL)
 ```bash
-curl "https://dom-tree-scraper-t2nuzzu7eq-uc.a.run.app/api/v1/div-tree"
+curl "https://dom-tree-scraper-326385607594.us-central1.run.app/api/v1/div-tree"
 ```
 
 #### Extract DOM Tree (Custom URL)
 ```bash
-curl "https://dom-tree-scraper-t2nuzzu7eq-uc.a.run.app/api/v1/div-tree?url=https://example.com"
+curl "https://dom-tree-scraper-326385607594.us-central1.run.app/api/v1/div-tree?url=https://example.com"
 ```
 
 #### Get Service Status
 ```bash
-curl "https://dom-tree-scraper-t2nuzzu7eq-uc.a.run.app/api/v1/status"
+curl "https://dom-tree-scraper-326385607594.us-central1.run.app/api/v1/status"
 ```
 
 ## 🐳 Docker Image

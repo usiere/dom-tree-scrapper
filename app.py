@@ -91,7 +91,7 @@ async def get_div_tree(
         headless: Run browser in headless mode (default: True)
     
     Returns:
-        JSON tree structure with labels, children, and optional hrefs
+        JSON tree structure with labels, labels, children, and optional hrefs
     """
     
     start_time = datetime.now()
@@ -102,8 +102,11 @@ async def get_div_tree(
         target_url = url or DEFAULT_URL
         logger.info(f"Extracting tree from URL: {target_url}")
         
-        # Extract tree using our extractor
-        tree_data = await extract_tree_async(target_url, headless)
+        # Extract tree using our extractor with timeout
+        tree_data = await asyncio.wait_for(
+            extract_tree_async(target_url, headless),
+            timeout=MAX_TIMEOUT
+        )
         
         # Count nodes for metadata
         node_count = count_tree_nodes(tree_data)
@@ -140,34 +143,70 @@ async def get_div_tree(
                 "extracted_at": start_time.isoformat(),
                 "duration_seconds": round(duration, 2),
                 "node_count": node_count,
-                "extraction_status": "success",
-                "output_file": output_filename
+                "extraction_status": "success"
             }
         }
         
-    except asyncio.TimeoutError as e:
-        logger.error(f"Timeout during extraction: {e}")
-        raise HTTPException(
+    except asyncio.TimeoutError:
+        duration = (datetime.now() - start_time).total_seconds()
+        logger.error(f"Tree extraction timed out after {duration:.2f}s")
+        
+        return JSONResponse(
             status_code=408,
-            detail={
-                "error": "Timeout while expanding tree",
-                "stage": "expand",
-                "message": "Tree expansion took too long to complete",
-                "extraction_status": "timeout"
-            }
-        )
-    
-    except Exception as e:
-        logger.error(f"Error during extraction: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error": str(e),
+            content={
+                "error": "Tree extraction timed out",
                 "stage": "extraction",
-                "message": "Failed to extract tree structure",
-                "extraction_status": "failed"
+                "extraction_status": "timeout",
+                "url": target_url,
+                "duration_seconds": round(duration, 2)
             }
         )
+        
+    except Exception as e:
+        duration = (datetime.now() - start_time).total_seconds()
+        logger.error(f"Error during tree extraction: {str(e)}")
+        
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": f"Tree extraction failed: {str(e)}",
+                "stage": "extraction",
+                "extraction_status": "failed",
+                "url": target_url,
+                "duration_seconds": round(duration, 2)
+            }
+        )
+
+@app.get("/api/v1/div-tree/quick")
+async def get_div_tree_quick():
+    """
+    Quick test endpoint that returns immediately for testing connectivity
+    """
+    return {
+        "data": {
+            "label": "Quick Test Response",
+            "children": [
+                {
+                    "label": "Service is working",
+                    "children": [],
+                    "href": None
+                },
+                {
+                    "label": "Ready for full extraction",
+                    "children": [],
+                    "href": None
+                }
+            ],
+            "href": None
+        },
+        "metadata": {
+            "url": "quick_test",
+            "extracted_at": datetime.now().isoformat(),
+            "duration_seconds": 0.0,
+            "node_count": 3,
+            "extraction_status": "quick_test"
+        }
+    }
 
 @app.post("/api/v1/div-tree")
 async def post_div_tree(
