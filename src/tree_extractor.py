@@ -27,7 +27,7 @@ class TreeExtractor:
         return (time.time() - self.start_time) > self.max_timeout
     
     def find_expandable_nodes(self) -> List[Any]:
-        """Find all currently expandable (collapsed) nodes"""
+        """Find all currently expandable (collapsed) nodes with prioritization"""
         try:
             # Look for various types of expandable nodes
             selectors = [
@@ -62,11 +62,53 @@ class TreeExtractor:
                     unique_nodes.append(node)
             
             logger.info(f"Total unique expandable nodes found: {len(unique_nodes)}")
-            return unique_nodes
+            
+            # Prioritize nodes that are likely to contain document content
+            prioritized_nodes = self._prioritize_nodes(unique_nodes)
+            return prioritized_nodes
             
         except Exception as e:
             logger.error(f"Error finding expandable nodes: {e}")
             return []
+    
+    def _prioritize_nodes(self, nodes: List[Any]) -> List[Any]:
+        """Prioritize nodes based on content importance for faster processing"""
+        try:
+            # Keywords that indicate important document content
+            important_keywords = [
+                'document', 'article', 'statute', 'rule', 'partnership',
+                'association', 'register', 'legal', 'entity', 'business',
+                'company', 'corporation', 'limited', 'gmbh', 'ag'
+            ]
+            
+            prioritized = []
+            regular = []
+            
+            for node in nodes:
+                try:
+                    node_text = node.text_content().lower() if node.text_content() else ""
+                    
+                    # Check if node contains important keywords
+                    is_important = any(keyword in node_text for keyword in important_keywords)
+                    
+                    if is_important:
+                        prioritized.append(node)
+                    else:
+                        regular.append(node)
+                        
+                except Exception:
+                    # If we can't read the node, put it in regular priority
+                    regular.append(node)
+            
+            # Return important nodes first, then regular ones
+            result = prioritized + regular
+            logger.info(f"Prioritized {len(prioritized)} important nodes out of {len(nodes)} total")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error prioritizing nodes: {e}")
+            return nodes  # Return original list if prioritization fails
     
     def expand_node(self, node) -> bool:
         """Expand a single node and wait for content to load"""
@@ -179,6 +221,11 @@ class TreeExtractor:
         while (iteration < self.max_expansion_attempts and 
                not self.is_timeout_exceeded()):
             
+            # Check time limit - leave buffer for tree building
+            if (time.time() - self.start_time) >= 50:  # 50s limit for expansion
+                logger.warning("Time limit approaching, stopping expansion")
+                break
+            
             # Find expandable nodes
             expandable_nodes = self.find_expandable_nodes()
             
@@ -188,11 +235,20 @@ class TreeExtractor:
             
             logger.info(f"Iteration {iteration}: Found {len(expandable_nodes)} expandable nodes")
             
-            # Expand each node
+            # Expand each node (limit to prevent hanging)
             expanded_count = 0
-            for node in expandable_nodes:
+            nodes_to_process = min(len(expandable_nodes), 5)  # Process max 5 nodes per iteration
+            
+            for i, node in enumerate(expandable_nodes[:nodes_to_process]):
+                if self.is_timeout_exceeded():
+                    break
+                
                 if self.expand_node(node):
                     expanded_count += 1
+                    
+                # Small delay between nodes to prevent overwhelming the page
+                if i < nodes_to_process - 1:
+                    time.sleep(0.1)
                     
             if expanded_count == 0:
                 logger.warning("No nodes were successfully expanded, stopping")
@@ -200,8 +256,8 @@ class TreeExtractor:
                 
             iteration += 1
             
-            # Small delay between iterations
-            time.sleep(0.5)
+            # Reduced delay between iterations
+            time.sleep(0.2)
         
         if iteration >= self.max_expansion_attempts:
             logger.warning("Max iterations reached during tree expansion")
@@ -420,9 +476,9 @@ def extract_tree_from_url(url: str, headless: bool = True) -> Dict[str, Any]:
         page = browser.new_page()
         
         try:
-            # Navigate to the page with container-friendly settings
-            page.goto(url, wait_until='domcontentloaded', timeout=60000)
-            page.wait_for_load_state('domcontentloaded', timeout=30000)
+            # Navigate to the page with faster wait strategy for 60s requirement
+            page.goto(url, wait_until='commit', timeout=30000)  # 'commit' is faster than 'domcontentloaded'
+            page.wait_for_load_state('domcontentloaded', timeout=15000)  # Reduced timeout
             
             # Extract tree
             extractor = TreeExtractor(page)

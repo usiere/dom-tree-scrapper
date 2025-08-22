@@ -44,8 +44,8 @@ app.add_middleware(
 )
 
 # Global configuration
-DEFAULT_URL = "https://www.handelsregister.de/rp_web/welcome.xhtml"
-MAX_TIMEOUT = 120  # seconds
+DEFAULT_URL = "https://www.handelsregister.de/rp_web/welcome.xhtml"  # Back to original target
+MAX_TIMEOUT = 60  # seconds - meet assignment requirement
 DEFAULT_HEADLESS = True
 
 @app.get("/")
@@ -57,8 +57,15 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "health": "/health",
+            "quick_test": "/api/v1/div-tree/quick",
             "tree_extraction": "/api/v1/div-tree",
+            "status": "/api/v1/status",
             "docs": "/docs"
+        },
+        "examples": {
+            "simple_page": "/api/v1/div-tree?url=https://example.com",
+            "german_register": "/api/v1/div-tree?url=https://www.handelsregister.de/rp_web/welcome.xhtml",
+            "quick_test": "/api/v1/div-tree/quick"
         }
     }
 
@@ -76,7 +83,7 @@ async def health_check():
 async def get_div_tree(
     url: Optional[str] = Query(
         None, 
-        description="Target URL to scrape (optional, uses default if not provided)"
+        description="Target URL to scrape (optional, uses default if not provided). For complex pages like German business register, use: ?url=https://www.handelsregister.de/rp_web/welcome.xhtml"
     ),
     headless: bool = Query(
         DEFAULT_HEADLESS,
